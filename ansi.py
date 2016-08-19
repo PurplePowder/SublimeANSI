@@ -80,7 +80,7 @@ class AnsiCommand(sublime_plugin.TextCommand):
           spans.append((start - offset, len(s) - offset, bold, color, bg_color))
           text += s[start:]
 
-        # removing the rest of  ansi escape codes
+        # Removing ansi escape codes
         ansi_codes = v.find_all(r'\x1b\[([\d;]*)m')
         ansi_codes.reverse()
         v.set_scratch(True)
@@ -89,7 +89,12 @@ class AnsiCommand(sublime_plugin.TextCommand):
             v.erase(edit, r)
         v.set_read_only(True)
 
-        for s in sorted(spans, key=lambda x: x[4]):
+        settings = sublime.load_settings("ansi.sublime-settings")
+        ANSI_FG = settings.get("ANSI_FG", {})
+        ANSI_BG = settings.get("ANSI_BG", {})
+        for s in spans:
+          if COLOR_MAP[s[3]] not in ANSI_FG or COLOR_MAP[s[4]] not in ANSI_BG:
+            continue
           ansi_scope = COLOR_MAP[s[3]] + ("_light_" if s[2] else "_") + COLOR_MAP[s[4]]
           sum_regions = v.get_regions(ansi_scope) + [sublime.Region(s[0], s[1])]
           v.add_regions(ansi_scope, sum_regions, ansi_scope, '', sublime.DRAW_NO_OUTLINE)
