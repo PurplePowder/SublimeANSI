@@ -16,7 +16,7 @@ class AnsiCommand(sublime_plugin.TextCommand):
         if v.settings().get("ansi_enabled"):
             return
         v.settings().set("ansi_enabled", True)
-        v.settings().set("color_scheme", "Packages/User/ANSIescape/ansi.tmTheme")
+        v.settings().set("color_scheme", "Packages/User/SublimeANSI/ansi.tmTheme")
         v.settings().set("draw_white_space", "none")
 
         DEFAULT = -1
@@ -127,11 +127,11 @@ class AnsiEventListener(sublime_plugin.EventListener):
 
     def assign_event_listner(self, view):
         view.settings().add_on_change("CHECK_FOR_ANSI_SYNTAX", lambda: self.detect_syntax_change(view))
-        if view.settings().get("syntax") == "Packages/ANSIescape/ANSI.tmLanguage":
+        if view.settings().get("syntax") == "Packages/SublimeANSI/ANSI.tmLanguage":
             view.run_command("ansi")
 
     def detect_syntax_change(self, view):
-        if view.settings().get("syntax") == "Packages/ANSIescape/ANSI.tmLanguage":
+        if view.settings().get("syntax") == "Packages/SublimeANSI/ANSI.tmLanguage":
             view.run_command("ansi")
         elif view.settings().get("ansi_enabled"):
             view.window().run_command("undo_ansi")
@@ -156,7 +156,7 @@ class AnsiColorBuildCommand(Default.exec.ExecCommand):
 
     def process_ansi(self):
         view = self.output_view
-        if view.settings().get("syntax") == "Packages/ANSIescape/ANSI.tmLanguage":
+        if view.settings().get("syntax") == "Packages/SublimeANSI/ANSI.tmLanguage":
             view.settings().set("ansi_enabled", False)
             view.run_command('ansi')
 
@@ -205,7 +205,7 @@ def generate_color_scheme(cs_file):
 
 
 def plugin_loaded():
-    ansi_cs_dir = os.path.join(sublime.packages_path(), "User", "ANSIescape")
+    ansi_cs_dir = os.path.join(sublime.packages_path(), "User", "SublimeANSI")
     if not os.path.exists(ansi_cs_dir):
         os.makedirs(ansi_cs_dir)
     cs_file = os.path.join(ansi_cs_dir, "ansi.tmTheme")
