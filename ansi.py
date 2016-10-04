@@ -15,9 +15,11 @@ class AnsiCommand(sublime_plugin.TextCommand):
         v = self.view
         if v.settings().get("ansi_enabled"):
             return
-        v.settings().set("ansi_enabled", True)
-        v.settings().set("color_scheme", "Packages/User/SublimeANSI/ansi.tmTheme")
-        v.settings().set("draw_white_space", "none")
+
+        settings = v.settings()
+        settings.set("ansi_enabled", True)
+        settings.set("color_scheme", "Packages/User/SublimeANSI/ansi.tmTheme")
+        settings.set("draw_white_space", "none")
 
         DEFAULT = -1
         BLACK = 0
@@ -42,18 +44,19 @@ class AnsiCommand(sublime_plugin.TextCommand):
         }
 
         bold = False
-        color = WHITE
-        bg_color = DEFAULT
-        text = ''
+        color = settings.get("SublimeANSI_last_color", WHITE)
+        bg_color = settings.get("SublimeANSI_last_bg_color", DEFAULT)
+        text_length = 0
         start = 0
         spans = []
         offset = 0
+        last_position = settings.get("SublimeANSI_last_position", 0)
 
-        s = v.substr(sublime.Region(0, v.size()))
+        s = v.substr(sublime.Region(last_position, v.size()))
         for m in re.finditer(r'\x1b\[([\d;]*)m', s):
           if start != m.start():
             spans.append((start - offset, m.start() - offset, bold, color, bg_color))
-            text += s[start:m.start()]
+            text_length += m.start() - start
 
           codes = m.group(1).split(';')
           if codes != ['']:
@@ -78,7 +81,7 @@ class AnsiCommand(sublime_plugin.TextCommand):
 
         if start != len(s):
           spans.append((start - offset, len(s) - offset, bold, color, bg_color))
-          text += s[start:]
+          text_length += len(s) - start
 
         # Removing ansi escape codes
         ansi_codes = v.find_all(r'\x1b\[([\d;]*)m')
@@ -96,8 +99,14 @@ class AnsiCommand(sublime_plugin.TextCommand):
           if COLOR_MAP[s[3]] not in ANSI_FG or COLOR_MAP[s[4]] not in ANSI_BG:
             continue
           ansi_scope = COLOR_MAP[s[3]] + ("_light_" if s[2] else "_") + COLOR_MAP[s[4]]
-          sum_regions = v.get_regions(ansi_scope) + [sublime.Region(s[0], s[1])]
+          sum_regions = v.get_regions(ansi_scope) + [sublime.Region(s[0] + last_position,
+                                                                    s[1] + last_position)]
           v.add_regions(ansi_scope, sum_regions, ansi_scope, '', sublime.DRAW_NO_OUTLINE)
+
+        last_position += text_length
+        settings.set("SublimeANSI_last_position", last_position)
+        settings.set("SublimeANSI_last_color", color)
+        settings.set("SublimeANSI_last_bg_color", bg_color)
 
 
 class UndoAnsiCommand(sublime_plugin.WindowCommand):
@@ -107,6 +116,9 @@ class UndoAnsiCommand(sublime_plugin.WindowCommand):
         view.settings().erase("ansi_enabled")
         view.settings().erase("color_scheme")
         view.settings().erase("draw_white_space")
+        view.settings().erase("SublimeANSI_last_color")
+        view.settings().erase("SublimeANSI_last_bg_color")
+        view.settings().erase("SublimeANSI_last_position")
         view.set_read_only(False)
         view.set_scratch(False)
         settings = sublime.load_settings("ansi.sublime-settings")
@@ -139,21 +151,6 @@ class AnsiEventListener(sublime_plugin.EventListener):
 
 class AnsiColorBuildCommand(Default.exec.ExecCommand):
 
-    process_on_data = False
-    process_on_finish = True
-
-    @classmethod
-    def update_build_settings(cls):
-        print("updating ANSI build settings...")
-        settings = sublime.load_settings("ansi.sublime-settings")
-        val = settings.get("ANSI_process_trigger", "on_finish")
-        if val == "on_finish":
-            cls.process_on_data = False
-            cls.process_on_finish = True
-        elif val == "on_data":
-            cls.process_on_data = True
-            cls.process_on_finish = False
-
     def process_ansi(self):
         view = self.output_view
         if view.settings().get("syntax") == "Packages/SublimeANSI/ANSI.tmLanguage":
@@ -162,13 +159,14 @@ class AnsiColorBuildCommand(Default.exec.ExecCommand):
 
     def on_data(self, proc, data):
         super(AnsiColorBuildCommand, self).on_data(proc, data)
-        if self.process_on_data:
-            self.process_ansi()
+        self.process_ansi()
 
     def on_finished(self, proc):
         super(AnsiColorBuildCommand, self).on_finished(proc)
-        if self.process_on_finish:
-            self.process_ansi()
+        settings = self.output_view.settings()
+        settings.erase("SublimeANSI_last_color")
+        settings.erase("SublimeANSI_last_bg_color")
+        settings.erase("SublimeANSI_last_position")
 
 
 CS_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
