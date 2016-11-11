@@ -148,7 +148,6 @@ class AnsiEventListener(sublime_plugin.EventListener):
         elif view.settings().get("ansi_enabled"):
             view.window().run_command("undo_ansi")
 
-
 class AnsiColorBuildCommand(Default.exec.ExecCommand):
 
     def process_ansi(self):
@@ -210,9 +209,7 @@ def plugin_loaded():
     if not os.path.isfile(cs_file):
         generate_color_scheme(cs_file)
     settings = sublime.load_settings("ansi.sublime-settings")
-    AnsiColorBuildCommand.update_build_settings()
     settings.add_on_change("ANSI_COLORS_CHANGE", lambda: generate_color_scheme(cs_file))
-    settings.add_on_change("ANSI_SETTINGS_CHANGE", lambda: AnsiColorBuildCommand.update_build_settings())
     for window in sublime.windows():
         for view in window.views():
            AnsiEventListener().assign_event_listner(view)
